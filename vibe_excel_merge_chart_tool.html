@@ -1,0 +1,256 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Vibe Coding 檔案匯整</title>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+
+body{
+font-family:Arial;
+margin:40px;
+background:#f5f5f5;
+}
+
+.container{
+background:white;
+padding:30px;
+border-radius:10px;
+box-shadow:0 0 10px rgba(0,0,0,0.1);
+}
+
+button{
+padding:10px 20px;
+margin-top:10px;
+background:#4CAF50;
+color:white;
+border:none;
+border-radius:5px;
+cursor:pointer;
+}
+
+input{
+padding:6px;
+margin:5px;
+}
+
+table{
+border-collapse:collapse;
+margin-top:20px;
+}
+
+th,td{
+border:1px solid #ddd;
+padding:8px;
+}
+
+th{
+background:#f2f2f2;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>Vibe Coding 檔案匯整</h1>
+
+<input type="file" id="excelFiles" multiple>
+
+<br><br>
+
+<button onclick="mergeExcel()">合併 Excel</button>
+
+<h3>合併結果（前5筆）</h3>
+
+<div id="preview"></div>
+
+<h3>資料分析</h3>
+
+分類欄位:
+<input id="category">
+
+統計欄位:
+<input id="value">
+
+<button onclick="drawChart()">繪製直條圖</button>
+
+<br><br>
+
+<canvas id="chart" width="600" height="300"></canvas>
+
+<br>
+
+<button onclick="downloadExcel()">下載合併檔案</button>
+
+</div>
+
+<script>
+
+let mergedData = [];
+let chart;
+
+function mergeExcel(){
+
+mergedData=[];
+
+const files=document.getElementById('excelFiles').files;
+
+let processed=0;
+
+for(let i=0;i<files.length;i++){
+
+const reader=new FileReader();
+
+reader.onload=function(e){
+
+const data=new Uint8Array(e.target.result);
+
+const workbook=XLSX.read(data,{type:'array'});
+
+const sheet=workbook.Sheets[workbook.SheetNames[0]];
+
+const json=XLSX.utils.sheet_to_json(sheet);
+
+mergedData=mergedData.concat(json);
+
+processed++;
+
+if(processed===files.length){
+
+showPreview();
+
+}
+
+};
+
+reader.readAsArrayBuffer(files[i]);
+
+}
+
+}
+
+function showPreview(){
+
+let html="<table>";
+
+if(mergedData.length===0){
+
+document.getElementById("preview").innerHTML="沒有資料";
+
+return;
+
+}
+
+const headers=Object.keys(mergedData[0]);
+
+html+="<tr>";
+
+headers.forEach(h=>html+="<th>"+h+"</th>");
+
+html+="</tr>";
+
+for(let i=0;i<Math.min(5,mergedData.length);i++){
+
+html+="<tr>";
+
+headers.forEach(h=>{
+
+html+="<td>"+(mergedData[i][h]||"")+"</td>";
+
+});
+
+html+="</tr>";
+
+}
+
+html+="</table>";
+
+document.getElementById("preview").innerHTML=html;
+
+}
+
+function drawChart(){
+
+const category=document.getElementById("category").value;
+
+const value=document.getElementById("value").value;
+
+let result={};
+
+mergedData.forEach(row=>{
+
+let key=row[category];
+
+let val=parseFloat(row[value])||0;
+
+if(!result[key]){
+
+result[key]=0;
+
+}
+
+result[key]+=val;
+
+});
+
+const labels=Object.keys(result);
+
+const data=Object.values(result);
+
+const ctx=document.getElementById('chart');
+
+if(chart){
+
+chart.destroy();
+
+}
+
+chart=new Chart(ctx,{
+
+type:'bar',
+
+data:{
+
+labels:labels,
+
+datasets:[{
+
+label:value,
+
+data:data,
+
+backgroundColor:'rgba(54,162,235,0.6)'
+
+}]
+
+}
+
+});
+
+}
+
+function downloadExcel(){
+
+const ws=XLSX.utils.json_to_sheet(mergedData);
+
+const wb=XLSX.utils.book_new();
+
+XLSX.utils.book_append_sheet(wb,ws,"Merged");
+
+XLSX.writeFile(wb,"merged_result.xlsx");
+
+}
+
+</script>
+
+</body>
+
+</html>
